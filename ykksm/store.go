@@ -25,7 +25,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package yubiksm
+package ykksm
 
 import (
 	"errors"
@@ -33,7 +33,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/oleiade/trousseau"
+	"github.com/tgulacsi/trousseau"
 	"gopkg.in/inconshreveable/log15.v2"
 )
 
@@ -42,8 +42,9 @@ var Log = log15.New()
 var ErrNotFound = errors.New("not found")
 
 type Key struct {
-	PublicName string `ql:"uindex xPublicName"`
-	Secret     string
+	PublicName   string `ql:"uindex xPublicName"`
+	Secret       string
+	InternalName string
 }
 
 type KeyDB interface {
@@ -104,7 +105,7 @@ func (db trDB) Set(p Key) error {
 
 func (db trDB) Flush() error {
 	if err := db.Tr.Encrypt(db.Store); err != nil {
-		return err
+		return fmt.Errorf("Flush: Encrypt: %v", err)
 	}
 	return db.Tr.Write(db.Path)
 }

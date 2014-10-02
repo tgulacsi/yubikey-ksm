@@ -25,7 +25,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package yubiksm
+package ykksm
 
 import (
 	"io/ioutil"
@@ -45,7 +45,7 @@ func TestEncryptedKeyDB(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	st, err := NewKeyDB(fn, []string{"FD7E8F86"})
+	st, err := NewKeyDB(fn, []string{"9ECD9AD1"})
 	if err != nil {
 		t.Fatalf("create store (%q): %v", fn, err)
 	}
