@@ -42,6 +42,8 @@ import (
 var Log = log15.New()
 
 func main() {
+	Log.SetHandler(log15.StderrHandler)
+	ykksm.Log.SetHandler(log15.StderrHandler)
 	flagHTTP := flag.String("http", ":2345", "HTTP address to listen on")
 	flagDB := flag.String("db", "keys.db", "secret keys database")
 	flagRecipients := flag.String("recipients", "", "GNUPG key ids to encrypt database with")
@@ -52,13 +54,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	keyDB, err := ykksm.NewKeyDB(*flagDB, strings.Split(*flagRecipients, ","))
+	keyDB, err := ykksm.NewKeyDB(*flagDB, strings.Split(*flagRecipients, ","), true)
 	if err != nil {
 		Log.Crit("NewKeyDB", "name", *flagDB, "recipients", *flagRecipients, "error", err)
 		os.Exit(2)
 	}
+	defer keyDB.Close()
 
 	http.Handle("/", ykksm.DecryptHandler{keyDB})
-
+	Log.Info("Start listening on " + *flagHTTP)
 	http.ListenAndServe(*flagHTTP, nil)
 }

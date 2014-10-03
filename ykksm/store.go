@@ -37,6 +37,7 @@ import (
 )
 
 var ErrNotFound = errors.New("not found")
+var ErrReadOnly = errors.New("DB is read-only")
 
 type Key struct {
 	PublicName   string `ql:"uindex xPublicName"`
@@ -52,12 +53,15 @@ type KeyDB interface {
 
 // NewKeyDB returns a new KeyDB, implemented with github.com/oleiade/trousseau.
 // If passphrase is "", we prompt for the passphrase.
-func NewKeyDB(name string, recipients []string) (KeyDB, error) {
+func NewKeyDB(name string, recipients []string, readOnly bool) (KeyDB, error) {
 	tr, err := trousseau.OpenTrousseau(name)
 	if err == nil {
 		store, err := tr.Decrypt()
 		if err != nil {
 			return nil, err
+		}
+		if readOnly {
+			return trDB{Path: name, Store: store}, nil
 		}
 		return trDB{Path: name, Tr: tr, Store: store}, nil
 	}
@@ -75,6 +79,9 @@ func NewKeyDB(name string, recipients []string) (KeyDB, error) {
 		Recipients:       recipients,
 		TrousseauVersion: trousseau.TROUSSEAU_VERSION,
 	})
+	if readOnly {
+		return trDB{Path: name, Store: store}, nil
+	}
 	return trDB{Path: name, Tr: tr, Store: store}, nil
 }
 
@@ -96,11 +103,18 @@ func (db trDB) Get(devID string) (Key, error) {
 }
 
 func (db trDB) Set(p Key) error {
+	if db.Tr == nil {
+		return ErrReadOnly
+	}
 	db.Store.Data.Set(p.PublicName, p)
 	return nil
 }
 
 func (db trDB) Flush() error {
+	if db.Tr == nil {
+		Log.Warn("Flush on a read-only DB")
+		return nil
+	}
 	if err := db.Tr.Encrypt(db.Store); err != nil {
 		return fmt.Errorf("Flush: Encrypt: %v", err)
 	}
