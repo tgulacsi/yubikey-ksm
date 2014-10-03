@@ -34,10 +34,7 @@ import (
 	"time"
 
 	"github.com/tgulacsi/trousseau"
-	"gopkg.in/inconshreveable/log15.v2"
 )
-
-var Log = log15.New()
 
 var ErrNotFound = errors.New("not found")
 

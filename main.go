@@ -32,6 +32,8 @@ package main
 import (
 	"flag"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/tgulacsi/yubikey-ksm/ykksm"
 	"gopkg.in/inconshreveable/log15.v2"
@@ -56,7 +58,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	http.Handle("/", ykksm.Decrypter{keyDB})
+	http.Handle("/", ykksm.DecryptHandler{keyDB})
 
-	http.ListenAndServe(*flagHTTP)
+	http.ListenAndServe(*flagHTTP, nil)
 }
