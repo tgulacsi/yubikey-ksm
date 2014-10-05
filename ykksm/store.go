@@ -30,6 +30,7 @@ package ykksm
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -49,6 +50,11 @@ type KeyDB interface {
 	Get(string) (Key, error)
 	Set(Key) error
 	Close() error
+	Iterate() KeyDBIterator
+}
+
+type KeyDBIterator interface {
+	Next() (Key, error)
 }
 
 // NewKeyDB returns a new KeyDB, implemented with github.com/oleiade/trousseau.
@@ -123,4 +129,34 @@ func (db trDB) Flush() error {
 
 func (db trDB) Close() error {
 	return db.Flush()
+}
+
+type iterItem struct {
+	K Key
+	E error
+}
+
+func (db trDB) Iterate() KeyDBIterator {
+	c := make(chan iterItem)
+	go func() {
+		for _, k := range db.Store.Data.Keys() {
+			v, err := db.Get(k)
+			c <- iterItem{K: v, E: err}
+		}
+		close(c)
+	}()
+	return trDBIterator{c}
+}
+
+type trDBIterator struct {
+	c chan iterItem
+}
+
+func (it trDBIterator) Next() (Key, error) {
+	select {
+	case item := <-it.c:
+		return item.K, item.E
+	default:
+		return Key{}, io.EOF
+	}
 }

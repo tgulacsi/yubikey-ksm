@@ -31,37 +31,74 @@ package main
 
 import (
 	"flag"
+	"io"
 	"net/http"
 	"os"
 	"strings"
 
+	"github.com/tgulacsi/go/cmdmain"
 	"github.com/tgulacsi/yubikey-ksm/ykksm"
 	"gopkg.in/inconshreveable/log15.v2"
 )
 
 var Log = log15.New()
 
+const usagePrefix = "Usage: yubikey-ksm [globalopts] "
+
+var (
+	flagDB         = flag.String("db", "keys.db", "secret keys database")
+	flagRecipients = flag.String("recipients", "", "GNUPG key ids to encrypt database with")
+)
+
 func main() {
 	Log.SetHandler(log15.StderrHandler)
 	ykksm.Log.SetHandler(log15.StderrHandler)
-	flagHTTP := flag.String("http", ":2345", "HTTP address to listen on")
-	flagDB := flag.String("db", "keys.db", "secret keys database")
-	flagRecipients := flag.String("recipients", "", "GNUPG key ids to encrypt database with")
-	flag.Parse()
 
+	cmdmain.Main("")
+}
+
+func mustKeyDB(readOnly bool) ykksm.KeyDB {
 	if *flagRecipients == "" {
 		Log.Error("recipients is a must!")
 		os.Exit(1)
 	}
-
-	keyDB, err := ykksm.NewKeyDB(*flagDB, strings.Split(*flagRecipients, ","), true)
+	keyDB, err := ykksm.NewKeyDB(*flagDB, strings.Split(*flagRecipients, ","), readOnly)
 	if err != nil {
 		Log.Crit("NewKeyDB", "name", *flagDB, "recipients", *flagRecipients, "error", err)
 		os.Exit(2)
 	}
-	defer keyDB.Close()
+	return keyDB
+}
 
-	http.Handle("/", ykksm.DecryptHandler{keyDB})
-	Log.Info("Start listening on " + *flagHTTP)
-	http.ListenAndServe(*flagHTTP, nil)
+type serve struct {
+	addr string
+}
+
+func (m serve) Usage() {
+	io.WriteString(os.Stderr, usagePrefix+`serve [-http=host:port]`)
+}
+func (m serve) Examples() []string {
+	return []string{"-http=:23456"}
+}
+func (m serve) Describe() string {
+	return `starts HTTP server listening on the given host:port.`
+}
+func (m serve) RunCommand(args []string) error {
+	db := mustKeyDB(true)
+	defer db.Close()
+	return doServe(db, m.addr)
+}
+
+func init() {
+	cmdmain.RegisterCommand("serve", func(Flags *flag.FlagSet) cmdmain.CommandRunner {
+		m := &serve{}
+		flag.StringVar(&m.addr, "http", "", "host:port to listen on")
+		return m
+	})
+}
+
+func doServe(db ykksm.KeyDB, addr string) error {
+	http.Handle("/", ykksm.DecryptHandler{db})
+	Log.Info("Start listening on " + addr)
+	return http.ListenAndServe(addr, nil)
 }
