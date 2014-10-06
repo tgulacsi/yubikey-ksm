@@ -102,10 +102,12 @@ func (db trDB) Get(devID string) (Key, error) {
 	if err != nil {
 		return Key{}, err
 	}
-	if p, ok := v.(Key); ok {
-		return p, nil
-	}
-	return Key{}, fmt.Errorf("got bad typed value %v: %T", v, v)
+	m := v.(map[string]interface{})
+	return Key{
+		PublicName:   m["PublicName"].(string),
+		Secret:       m["Secret"].(string),
+		InternalName: m["InternalName"].(string),
+	}, nil
 }
 
 func (db trDB) Set(p Key) error {
@@ -131,32 +133,21 @@ func (db trDB) Close() error {
 	return db.Flush()
 }
 
-type iterItem struct {
-	K Key
-	E error
-}
-
 func (db trDB) Iterate() KeyDBIterator {
-	c := make(chan iterItem)
-	go func() {
-		for _, k := range db.Store.Data.Keys() {
-			v, err := db.Get(k)
-			c <- iterItem{K: v, E: err}
-		}
-		close(c)
-	}()
-	return trDBIterator{c}
+	return &trDBIterator{db: &db, keys: db.Store.Data.Keys()}
 }
 
 type trDBIterator struct {
-	c chan iterItem
+	db   *trDB
+	keys []string
+	pos  int
 }
 
-func (it trDBIterator) Next() (Key, error) {
-	select {
-	case item := <-it.c:
-		return item.K, item.E
-	default:
+func (it *trDBIterator) Next() (Key, error) {
+	if len(it.keys) <= it.pos {
 		return Key{}, io.EOF
 	}
+	key, err := it.db.Get(it.keys[it.pos])
+	it.pos++
+	return key, err
 }

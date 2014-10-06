@@ -40,11 +40,13 @@ import (
 	"strings"
 
 	"github.com/tgulacsi/go/cmdmain"
+	"github.com/tgulacsi/trousseau/crypto/openpgp"
 	"github.com/tgulacsi/yubikey-ksm/ykksm"
 )
 
 type export struct {
-	csv bool
+	csv            bool
+	destRecipients string
 }
 
 func (m export) Usage() {
@@ -67,7 +69,7 @@ func (m export) RunCommand(args []string) error {
 	}
 	db := mustKeyDB(true)
 	defer db.Close()
-	return doExport(db, dest)
+	return doExport(db, dest, m.destRecipients)
 }
 
 type imprt struct{}
@@ -95,6 +97,7 @@ func init() {
 	cmdmain.RegisterCommand("export", func(Flags *flag.FlagSet) cmdmain.CommandRunner {
 		m := &export{}
 		Flags.BoolVar(&m.csv, "csv", false, "CSV output? (The default is JSON)")
+		Flags.StringVar(&m.destRecipients, "dest-recipients", "", "destination recipients - if empty, the source recipient key IDs are used")
 		return m
 	})
 	cmdmain.RegisterCommand("import", func(Flags *flag.FlagSet) cmdmain.CommandRunner {
@@ -102,14 +105,20 @@ func init() {
 	})
 }
 
-func doExport(db ykksm.KeyDB, dest string) error {
+func doExport(db ykksm.KeyDB, dest, recipients string) error {
+	if recipients == "" {
+		recipients = *flagRecipients
+	}
+	dstRecip := strings.Split(recipients, ",")
+
 	n := int64(0)
 	it := db.Iterate()
-	var w *bufio.Writer
+	var f *os.File
+	var err error
 	if dest == "" || dest == "-" {
-		w = bufio.NewWriter(os.Stdout)
+		f = os.Stdout
 	} else {
-		f, err := os.Create(dest)
+		f, err = os.Create(dest)
 		if err != nil {
 			Log.Crit("create", "file", dest, "error", err)
 			return err
@@ -119,13 +128,15 @@ func doExport(db ykksm.KeyDB, dest string) error {
 				Log.Error("Close", "file", f.Name(), "error", err)
 			}
 		}()
-		w = bufio.NewWriter(f)
 	}
+
+	gf := openpgp.WrapFile(f, "", dstRecip)
 	defer func() {
-		if err := w.Flush(); err != nil {
-			Log.Error("Flush", "error", err)
+		if err := gf.Close(); err != nil {
+			Log.Error("Close", "error", err)
 		}
 	}()
+	w := io.Writer(gf)
 
 	print := func(k ykksm.Key) {
 		io.WriteString(w, `"`+k.PublicName+`","`+k.Secret+`","`+k.InternalName+`"`+"\n")
@@ -232,6 +243,7 @@ Loop:
 			Log.Error("Set", "k", k, "error", err)
 			continue
 		}
+		n++
 	}
 	Log.Info(fmt.Sprintf("Successfully imported %d records.", n))
 	return nil
