@@ -76,7 +76,7 @@ func (m imprt) Usage() {
 	io.WriteString(os.Stderr, usagePrefix+`import [inputfile]`)
 }
 func (m imprt) Examples() []string {
-	return []string{"imprt.csv"}
+	return []string{"import.csv"}
 }
 func (m imprt) Describe() string {
 	return `imports KSM database from JSON/CSV file. Sniffs the format from the data.`
