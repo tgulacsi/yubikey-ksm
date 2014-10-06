@@ -94,7 +94,7 @@ func (m imprt) RunCommand(args []string) error {
 func init() {
 	cmdmain.RegisterCommand("export", func(Flags *flag.FlagSet) cmdmain.CommandRunner {
 		m := &export{}
-		flag.BoolVar(&m.csv, "csv", false, "CSV output? (The default is JSON)")
+		Flags.BoolVar(&m.csv, "csv", false, "CSV output? (The default is JSON)")
 		return m
 	})
 	cmdmain.RegisterCommand("import", func(Flags *flag.FlagSet) cmdmain.CommandRunner {

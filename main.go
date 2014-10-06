@@ -54,7 +54,7 @@ func main() {
 	Log.SetHandler(log15.StderrHandler)
 	ykksm.Log.SetHandler(log15.StderrHandler)
 
-	cmdmain.Main("")
+	cmdmain.Main()
 }
 
 func mustKeyDB(readOnly bool) ykksm.KeyDB {
@@ -92,7 +92,7 @@ func (m serve) RunCommand(args []string) error {
 func init() {
 	cmdmain.RegisterCommand("serve", func(Flags *flag.FlagSet) cmdmain.CommandRunner {
 		m := &serve{}
-		flag.StringVar(&m.addr, "http", "", "host:port to listen on")
+		Flags.StringVar(&m.addr, "http", "", "host:port to listen on")
 		return m
 	})
 }
